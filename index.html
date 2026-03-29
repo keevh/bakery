@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rollin. | Artisanal Bakery NYC</title>
+    <!-- Tailwind CSS vía CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons para iconos fluidos -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Fuentes (Inter para un look limpio y moderno) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Animaciones personalizadas */
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-[#FDFBF7] text-[#3C2317] selection:bg-[#FFDC39] selection:text-[#3C2317]">
+
+    <!-- Contenedores principales -->
+    <div id="navbar-root"></div>
+    <main id="main-root" class="min-h-screen"></main>
+    <div id="footer-root"></div>
+    <div id="cart-root"></div>
+
+    <script>
+        // --- ESTADO GLOBAL (MOCK DATA) ---
+        const products = [
+            { id: 1, name: "Sourdough Boule", category: "BREAD", description: "Our signature 48h fermented sourdough.", price: 8.50, minOrder: 10, image: "https://www.santaelena.com.co/wp-content/uploads/2021/03/MG_6571-600x468.jpg" },
+            { id: 2, name: "Brioche Buns", category: "BREAD", description: "Rich and buttery for burgers.", price: 65.00, minOrder: 2, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS0QY_5625AdgtehKArFoSoaBk-1Jp60vz-8A&s" }
+        ];
+
+        const mockOrders = [
+            { id: "ORD-001", client: "The Plaza Hotel", date: "2026-04-02", amount: 450.00, status: "Baking" },
+            { id: "ORD-002", client: "Le Bernardin", date: "2026-04-03", amount: 210.00, status: "Pending" }
+        ];
+
+        let state = {
+            currentView: 'home', // 'home', 'shop', 'admin'
+            cart: [],
+            isCartOpen: false,
+            isMobileMenuOpen: false
+        };
+
+        // --- FUNCIONES DE UTILIDAD ---
+        const formatPrice = (price) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price);
+        
+        const getMinDeliveryDate = () => {
+            const date = new Date();
+            date.setDate(date.getDate() + 2);
+            return date.toISOString().split('T')[0];
+        };
+
+        const getCartTotal = () => state.cart.reduce((sum, item) => sum + (item.product.price * item.qty), 0);
+
+        // --- COMPONENTES UI (Generadores de HTML) ---
+        const PillButton = (text, color = "bg-[#FFDC39]", className = "", onClickAttr = "") => `
+            <button onclick="${onClickAttr}" class="${color} text-[#3C2317] font-bold uppercase tracking-wide px-6 py-2 rounded-full border-2 border-[#3C2317] hover:-translate-y-1 transition-transform shadow-[2px_2px_0px_0px_#3C2317] ${className}">
+                ${text}
+            </button>
+        `;
+
+        const Sticker = (text, color = "bg-[#9BE1E8]", className = "") => `
+            <span class="inline-block ${color} text-white font-black uppercase text-sm px-3 py-1 rounded-full shadow-md ${className}">
+                ${text}
+            </span>
+        `;
+
+        const CategoryBadge = (name, count, color) => `
+            <div class="flex items-center space-x-2 ${color} rounded-full px-4 py-2 border-2 border-transparent hover:border-[#3C2317] cursor-pointer transition-colors">
+                <span class="font-bold text-[#3C2317] uppercase text-sm">${name}</span>
+                <span class="bg-[#3C2317] text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">${count}</span>
+            </div>
+        `;
+
+        const ProductCard = (product) => `
+            <div class="bg-white rounded-[2rem] p-4 flex flex-col items-center text-center shadow-sm border-2 border-[#3C2317]/5 hover:border-[#3C2317]/20 transition-all hover:-translate-y-2">
+                <div class="w-full h-40 rounded-[1.5rem] overflow-hidden mb-4 bg-stone-100">
+                    <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover" />
+                </div>
+                <h3 class="font-black text-[#3C2317] uppercase text-lg leading-tight mb-1">${product.name}</h3>
+                <p class="text-xs text-[#3C2317]/60 mb-3 font-medium px-2">${product.description}</p>
+                <div class="mt-auto w-full flex justify-between items-center">
+                    <span class="font-black text-[#FF9B71] text-xl">${formatPrice(product.price)}</span>
+                    <button onclick="window.addToCart(${product.id})" class="bg-[#3C2317] text-white p-2 rounded-full hover:bg-[#8B5CF6] transition-colors">
+                        <i class="ph ph-plus text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // --- FUNCIONES DE ACCIÓN ---
+        window.changeView = (view) => {
+            state.currentView = view;
+            state.isMobileMenuOpen = false;
+            renderApp();
+        };
+
+        window.toggleCart = (isOpen) => {
+            state.isCartOpen = isOpen;
+            renderCart();
+        };
+
+        window.toggleMobileMenu = () => {
+            state.isMobileMenuOpen = !state.isMobileMenuOpen;
+            renderNavbar();
+        };
+
+        window.addToCart = (productId) => {
+            const product = products.find(p => p.id === productId);
+            const existing = state.cart.find(item => item.product.id === productId);
+            if (existing) {
+                existing.qty += product.minOrder;
+            } else {
+                state.cart.push({ product, qty: product.minOrder });
+            }
+            window.toggleCart(true);
+            renderNavbar(); // Para actualizar el número del carrito
+        };
+
+        window.removeFromCart = (productId) => {
+            state.cart = state.cart.filter(item => item.product.id !== productId);
+            renderCart();
+            renderNavbar(); // Para actualizar el número del carrito
+        };
+
+        // --- FUNCIONES DE RENDERIZADO ---
+        const renderNavbar = () => {
+            if (state.currentView === 'admin') {
+                document.getElementById('navbar-root').innerHTML = '';
+                return;
+            }
+
+            const cartCountBadge = state.cart.length > 0 
+                ? `<span class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#FF9B71] text-[10px] font-bold text-white border border-[#3C2317]">${state.cart.length}</span>` 
+                : '';
+
+            const mobileMenu = state.isMobileMenuOpen ? `
+                <div class="md:hidden bg-[#FDFBF7] border-b-2 border-[#3C2317]/10 px-4 py-4 space-y-4">
+                    <button onclick="window.changeView('home')" class="block w-full text-left font-black uppercase text-[#3C2317]">Home</button>
+                    <button onclick="window.changeView('shop')" class="block w-full text-left font-black uppercase text-[#3C2317]">Bakery</button>
+                </div>
+            ` : '';
+
+            document.getElementById('navbar-root').innerHTML = `
+                <div class="flex flex-col w-full">
+                    <!-- Top Banner -->
+                    <div class="bg-[#8B5CF6] text-white text-xs font-bold py-2 px-4 flex justify-between items-center overflow-hidden">
+                        <span class="whitespace-nowrap">🥖 15% Off on $100+ Purchase</span>
+                        <span class="hidden sm:inline whitespace-nowrap">📦 Subscribe & Save 15%</span>
+                        <span class="hidden md:inline whitespace-nowrap">🥖 15% Off on $100+ Purchase</span>
+                    </div>
+
+                    <nav class="bg-[#FDFBF7] py-4 px-4 sm:px-8 border-b-2 border-[#3C2317]/10">
+                        <div class="max-w-7xl mx-auto flex justify-between items-center">
+                            <div class="flex items-center cursor-pointer" onclick="window.changeView('home')">
+                                <span class="font-black text-3xl text-[#3C2317] tracking-tighter uppercase">Rollin.</span>
+                            </div>
+                            
+                            <div class="hidden md:flex space-x-8 items-center">
+                                <button onclick="window.changeView('shop')" class="font-bold text-[#3C2317] uppercase text-sm hover:text-[#8B5CF6]">Bakery</button>
+                                <button class="font-bold text-[#3C2317] uppercase text-sm hover:text-[#8B5CF6]">About Us</button>
+                                <button class="font-bold text-[#3C2317] uppercase text-sm hover:text-[#8B5CF6]">Contact</button>
+                                ${PillButton('Start Baking', 'bg-[#FFDC39]', '', "window.changeView('shop')")}
+                                <button onclick="window.toggleCart(true)" class="relative p-2 bg-white rounded-full border-2 border-[#3C2317] hover:bg-stone-100 transition-colors">
+                                    <i class="ph ph-shopping-bag text-xl"></i>
+                                    ${cartCountBadge}
+                                </button>
+                            </div>
+
+                            <button class="md:hidden p-2 text-[#3C2317]" onclick="window.toggleMobileMenu()">
+                                ${state.isMobileMenuOpen ? '<i class="ph ph-x text-2xl"></i>' : '<i class="ph ph-list text-2xl"></i>'}
+                            </button>
+                        </div>
+                    </nav>
+                    ${mobileMenu}
+                </div>
+            `;
+        };
+
+        const renderHome = () => {
+            const html = `
+                <div class="fade-in">
+                    <!-- Hero Section -->
+                    <div class="max-w-7xl mx-auto px-4 sm:px-8 py-12 md:py-20">
+                        <div class="bg-white rounded-[3rem] p-8 md:p-16 border-2 border-[#3C2317]/5 shadow-sm relative overflow-hidden flex flex-col md:flex-row items-center">
+                            <div class="md:w-1/2 z-10 relative">
+                                <h1 class="text-6xl md:text-8xl font-black text-[#3C2317] uppercase leading-[0.85] tracking-tighter mb-6 relative">
+                                    Bake ${Sticker('Tasty', 'bg-[#4ADE80]', '-rotate-6 -ml-2 -mt-4 align-top')} <br />
+                                    The Bread ${Sticker('Crunchy', 'bg-[#FF9B71]', 'rotate-3 -ml-4 align-middle')}
+                                </h1>
+                                <p class="text-[#3C2317] font-bold uppercase text-lg md:text-xl max-w-sm leading-snug mb-4">
+                                    Premium Bread and Pastries Made From Scratch ${Sticker('Fresh', 'bg-[#9BE1E8]', 'text-xs')}
+                                </p>
+                                <p class="text-[#3C2317]/70 font-medium text-sm max-w-sm mb-8">
+                                    We're literally obsessed with giving your business more of what you love! Perfect for wholesale and events.
+                                </p>
+                                <div class="flex items-center gap-4">
+                                    ${PillButton('Order Now', 'bg-[#FFDC39]', '', "window.changeView('shop')")}
+                                    <button class="font-bold text-[#3C2317] uppercase text-sm hover:underline flex items-center">
+                                        Baking Blog <i class="ph ph-caret-right ml-1"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="md:w-1/2 mt-12 md:mt-0 relative flex justify-center">
+                                <div class="absolute w-64 h-80 bg-[#FFDC39] rounded-[4rem] rotate-12 z-0"></div>
+                                <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=600" alt="Stacked Bread" class="relative z-10 w-72 h-auto object-cover rounded-3xl shadow-2xl rotate-3 border-4 border-white" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Featured Item Section -->
+                    <div class="max-w-7xl mx-auto px-4 sm:px-8 py-12 flex flex-col md:flex-row gap-12 items-center">
+                        <div class="md:w-1/2 relative flex justify-center">
+                            <div class="absolute w-72 h-72 bg-[#9BE1E8] rounded-[3rem] -rotate-6"></div>
+                            <img src="https://images.unsplash.com/photo-1608198093002-ad4e005484ec?auto=format&fit=crop&q=80&w=600" alt="Baguettes" class="relative z-10 w-64 h-80 object-cover rounded-[2rem] shadow-lg -rotate-3 border-8 border-white" />
+                            <div class="absolute -top-6 -left-6 bg-[#FFDC39] border-2 border-[#3C2317] rounded-full w-24 h-24 flex items-center justify-center rotate-12 z-20">
+                                <span class="font-black text-center text-[#3C2317] text-[10px] leading-tight uppercase">For The<br/>Whole<br/>Family</span>
+                            </div>
+                        </div>
+                        <div class="md:w-1/2">
+                            <h2 class="text-5xl md:text-6xl font-black text-[#3C2317] uppercase leading-[0.9] tracking-tighter mb-8">
+                                Your Only ${Sticker('🍪', 'bg-transparent', 'text-4xl p-0 m-0 shadow-none -mt-4 align-middle')} <br /> Dose of Delight
+                            </h2>
+                            <div class="bg-white p-4 rounded-3xl border-2 border-[#3C2317]/10 flex items-center gap-4 max-w-md shadow-sm mb-6 hover:-translate-y-1 transition-transform">
+                                <img src="${products[1].image}" alt="Buns" class="w-20 h-20 rounded-2xl object-cover" />
+                                <div>
+                                    <h4 class="font-black text-[#3C2317] uppercase">${products[1].name}</h4>
+                                    <p class="text-xs font-bold text-[#3C2317]/50 uppercase mb-1">Gourmet Standard</p>
+                                    <p class="font-black text-xl text-[#FF9B71]">${formatPrice(products[1].price)} <span class="text-xs text-[#3C2317]/50 font-bold">/ ${products[1].minOrder} units</span></p>
+                                </div>
+                            </div>
+                            <p class="text-sm font-bold text-[#3C2317] max-w-sm">
+                                All our breads have a show-stopping crust and tender crumb in their repertoire and this is one of our favourites.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Categories & Products Grid -->
+                    <div class="max-w-7xl mx-auto px-4 sm:px-8 py-12">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
+                            <h2 class="text-4xl md:text-5xl font-black text-[#3C2317] uppercase leading-[0.9] tracking-tighter max-w-xs">
+                                Products We Bake Here Daily -
+                            </h2>
+                            <div class="flex flex-wrap gap-3 max-w-lg">
+                                ${CategoryBadge('Sourdough', '1', 'bg-[#FFD1B3]')}
+                                ${CategoryBadge('Brioche', '1', 'bg-[#9BE1E8]')}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-3xl">
+                            ${products.map(p => ProductCard(p)).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Bento Box Section -->
+                    <div class="max-w-7xl mx-auto px-4 sm:px-8 py-16">
+                        <div class="bg-[#3C2317] rounded-[3rem] p-8 md:p-12 flex flex-col md:flex-row items-center gap-12 relative overflow-hidden">
+                            <div class="absolute top-8 left-8 flex flex-col gap-2 opacity-50">
+                                <div class="w-2 h-2 bg-[#FF9B71] rounded-full"></div>
+                                <div class="w-2 h-2 bg-[#FF9B71] rounded-full"></div>
+                                <div class="w-2 h-2 bg-[#FF9B71] rounded-full"></div>
+                            </div>
+                            <div class="md:w-1/2 relative z-10 flex justify-center">
+                                <div class="bg-[#FDFBF7] p-2 rounded-[2rem] rotate-3 w-full max-w-sm">
+                                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRynZkDpKcSLHRX4PGJC1ynWwYL6YfDFS1VjA&s" alt="Baking Art" class="w-full h-64 object-cover rounded-[1.5rem]" />
+                                </div>
+                            </div>
+                            <div class="md:w-1/2 z-10">
+                                <h2 class="text-4xl md:text-5xl font-black text-white uppercase leading-[0.9] tracking-tighter mb-6">
+                                    Why is Baking Considered As Art Form?
+                                </h2>
+                                <p class="text-[#FDFBF7]/80 font-medium text-sm mb-8 max-w-md">
+                                    Their experience plays a role in the way they work. Bakers use flavours and visual appeal to produce an edible art piece. Every fold and score is intentional.
+                                </p>
+                                ${PillButton('Learn Baking', 'bg-[#FFDC39]', '', "window.changeView('shop')")}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('main-root').innerHTML = html;
+        };
+
+        const renderShop = () => {
+            const html = `
+                <div class="fade-in py-12 px-4 sm:px-8">
+                    <div class="max-w-7xl mx-auto">
+                        <div class="flex justify-between items-end mb-12">
+                            <div>
+                                <h1 class="text-5xl font-black text-[#3C2317] uppercase tracking-tighter mb-2">Full Menu</h1>
+                                <p class="font-bold text-[#3C2317]/60 uppercase text-sm">Wholesale & Catering</p>
+                            </div>
+                            <div class="hidden md:block">
+                                ${Sticker('Min 48h Notice', 'bg-[#8B5CF6]')}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-4xl">
+                            ${products.map(p => ProductCard(p)).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('main-root').innerHTML = html;
+        };
+
+        const renderAdmin = () => {
+            const getOrdersHTML = (status) => {
+                const filtered = mockOrders.filter(o => o.status === status);
+                if (filtered.length === 0) return `<p class="text-xs text-stone-400 italic">No orders</p>`;
+                return filtered.map(o => `
+                    <div class="bg-white p-3 rounded-xl shadow-sm mb-2 border border-stone-200">
+                        <p class="font-bold text-[#3C2317] text-sm">${o.client}</p>
+                        <p class="text-xs text-stone-500">${o.date} • $${o.amount}</p>
+                    </div>
+                `).join('');
+            };
+
+            const html = `
+                <div class="fade-in bg-stone-100 min-h-screen p-8">
+                    <div class="max-w-6xl mx-auto">
+                        <div class="flex justify-between items-center mb-8">
+                            <h1 class="text-3xl font-black text-[#3C2317] uppercase tracking-tighter">Backoffice</h1>
+                            <button onclick="window.changeView('home')" class="bg-[#3C2317] text-white font-bold uppercase text-xs px-4 py-2 rounded-full hover:bg-stone-800">Exit Admin</button>
+                        </div>
+                        <div class="bg-white rounded-3xl p-6 shadow-sm border border-stone-200">
+                            <h2 class="font-bold text-[#3C2317] uppercase mb-4">Recent Orders (Kanban)</h2>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                ${['Pending', 'Baking', 'Ready'].map(status => `
+                                    <div class="bg-stone-50 p-4 rounded-2xl border border-stone-100">
+                                        <h3 class="font-black text-stone-400 uppercase text-sm mb-3">${status}</h3>
+                                        ${getOrdersHTML(status)}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('main-root').innerHTML = html;
+        };
+
+        const renderFooter = () => {
+            if (state.currentView === 'admin') {
+                document.getElementById('footer-root').innerHTML = '';
+                return;
+            }
+            document.getElementById('footer-root').innerHTML = `
+                <footer class="bg-white py-12 px-4 border-t-2 border-[#3C2317]/10 mt-12">
+                    <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+                        <h3 class="font-black text-3xl text-[#3C2317] tracking-tighter uppercase">Rollin.</h3>
+                        <div class="flex flex-wrap justify-center gap-4 text-sm font-bold uppercase text-[#3C2317]/60">
+                            <button class="hover:text-[#3C2317]">Wholesale</button>
+                            <button class="hover:text-[#3C2317]">Contact</button>
+                            <button onclick="window.changeView('admin')" class="hover:text-[#8B5CF6]">Admin Panel</button>
+                        </div>
+                    </div>
+                </footer>
+            `;
+        };
+
+        const renderCart = () => {
+            const overlayClass = state.isCartOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none';
+            const panelClass = state.isCartOpen ? 'translate-x-0' : 'translate-x-full';
+            
+            let cartItemsHTML = '';
+            if (state.cart.length === 0) {
+                cartItemsHTML = `
+                    <div class="text-center text-[#3C2317]/30 mt-20 flex flex-col items-center">
+                        <i class="ph ph-shopping-bag text-6xl mb-4"></i>
+                        <p class="font-bold uppercase">Your bag is empty.</p>
+                    </div>
+                `;
+            } else {
+                cartItemsHTML = state.cart.map(item => `
+                    <div class="flex gap-4 bg-white p-3 rounded-2xl border-2 border-[#3C2317]/10 items-center">
+                        <img src="${item.product.image}" alt="${item.product.name}" class="w-16 h-16 object-cover rounded-xl" />
+                        <div class="flex-grow">
+                            <h4 class="font-black text-[#3C2317] text-sm uppercase leading-tight">${item.product.name}</h4>
+                            <p class="text-xs font-bold text-[#3C2317]/50 mb-1">Qty: ${item.qty} units</p>
+                            <div class="flex justify-between items-center">
+                                <span class="font-black text-[#FF9B71]">${formatPrice(item.product.price * item.qty)}</span>
+                                <button onclick="window.removeFromCart(${item.product.id})" class="text-red-400 hover:text-red-600 p-1"><i class="ph ph-trash text-lg"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                cartItemsHTML += `
+                    <div class="bg-white p-4 rounded-2xl border-2 border-[#3C2317]/10 mt-6 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-2 h-full bg-[#9BE1E8]"></div>
+                        <label class="block text-sm font-black text-[#3C2317] uppercase mb-1 flex items-center ml-2">
+                            <i class="ph ph-calendar mr-2 text-lg"></i> Delivery Date
+                        </label>
+                        <p class="text-[10px] font-bold text-[#3C2317]/50 uppercase mb-3 ml-2">Req. 48h for fermentation.</p>
+                        <input type="date" min="${getMinDeliveryDate()}" class="w-full ml-2 p-2 border-2 border-[#3C2317]/20 rounded-xl focus:outline-none focus:border-[#8B5CF6] font-bold text-[#3C2317] text-sm" required />
+                    </div>
+                `;
+            }
+
+            const cartFooterHTML = state.cart.length > 0 ? `
+                <div class="p-6 bg-white border-t-2 border-[#3C2317]/10">
+                    <div class="flex justify-between items-end mb-4">
+                        <span class="font-bold text-[#3C2317]/60 uppercase text-sm">Total</span>
+                        <span class="text-3xl font-black text-[#3C2317] leading-none">${formatPrice(getCartTotal())}</span>
+                    </div>
+                    <button class="w-full bg-[#3C2317] text-white p-4 rounded-full font-black uppercase tracking-wider hover:bg-[#FF9B71] transition-colors flex justify-center items-center shadow-[4px_4px_0px_0px_#FFDC39]">
+                        Proceed to Checkout <i class="ph ph-arrow-right ml-2 text-xl"></i>
+                    </button>
+                    <div class="flex justify-center gap-2 mt-4 opacity-40 grayscale">
+                        <i class="ph ph-credit-card text-2xl"></i>
+                    </div>
+                </div>
+            ` : '';
+
+            document.getElementById('cart-root').innerHTML = `
+                <div class="fixed inset-0 z-[100] transition-opacity duration-300 ${overlayClass}">
+                    <div class="absolute inset-0 bg-[#3C2317]/40 backdrop-blur-sm" onclick="window.toggleCart(false)"></div>
+                    <div class="absolute right-0 top-0 h-full w-full max-w-md bg-[#FDFBF7] shadow-2xl transform transition-transform duration-500 ease-in-out flex flex-col rounded-l-[2rem] border-l-4 border-[#3C2317] ${panelClass}">
+                        <div class="p-6 border-b-2 border-[#3C2317]/10 flex justify-between items-center bg-[#FFDC39] rounded-tl-[1.8rem]">
+                            <h2 class="text-2xl font-black text-[#3C2317] uppercase tracking-tighter">Your Bag</h2>
+                            <button onclick="window.toggleCart(false)" class="bg-white rounded-full p-1 border-2 border-[#3C2317] text-[#3C2317] hover:scale-110 transition-transform">
+                                <i class="ph ph-x text-lg"></i>
+                            </button>
+                        </div>
+                        <div class="flex-grow overflow-y-auto p-6 space-y-4">
+                            ${cartItemsHTML}
+                        </div>
+                        ${cartFooterHTML}
+                    </div>
+                </div>
+            `;
+        };
+
+        // --- INICIALIZADOR ---
+        const renderApp = () => {
+            renderNavbar();
+            if (state.currentView === 'home') renderHome();
+            if (state.currentView === 'shop') renderShop();
+            if (state.currentView === 'admin') renderAdmin();
+            renderFooter();
+            renderCart(); // Asegurar que el overlay del carrito exista en el DOM
+        };
+
+        // Arrancar la app
+        renderApp();
+    </script>
+</body>
+</html>
