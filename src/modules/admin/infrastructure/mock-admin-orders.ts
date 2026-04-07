@@ -1,0 +1,68 @@
+import type { AdminOrder } from "@/modules/admin/domain/admin-order";
+
+export const mockAdminOrders: AdminOrder[] = [
+  {
+    id: "ORD-001",
+    client: "The Plaza Hotel",
+    date: "2026-04-02",
+    amount: 450,
+    status: "baking",
+    contactChannel: "email",
+    contactValue: "events@plaza.test",
+    notes: "Entrega por recepcion. Panes listos antes de las 8am.",
+    items: [
+      { productName: "Sourdough Boule", quantity: 30 },
+      { productName: "Brioche Buns", quantity: 12 },
+    ],
+  },
+  {
+    id: "ORD-002",
+    client: "Le Bernardin",
+    date: "2026-04-03",
+    amount: 210,
+    status: "pending",
+    contactChannel: "phone",
+    contactValue: "+1 212 555 0101",
+    notes: "Confirmar ventana de entrega durante la tarde.",
+    items: [{ productName: "Sourdough Boule", quantity: 20 }],
+  },
+  {
+    id: "ORD-003",
+    client: "Rollin Catering",
+    date: "2026-04-04",
+    amount: 310,
+    status: "ready",
+    contactChannel: "whatsapp",
+    contactValue: "+1 917 555 0112",
+    notes: "Evento corporativo. Mantener empaque etiquetado.",
+    items: [
+      { productName: "Brioche Buns", quantity: 20 },
+      { productName: "Sourdough Boule", quantity: 10 },
+    ],
+  },
+  {
+    id: "ORD-004",
+    client: "Brooklyn Table",
+    date: "2026-03-28",
+    amount: 580,
+    status: "delivered",
+    contactChannel: "email",
+    contactValue: "ops@brooklyntable.test",
+    notes: "Pedido entregado sin incidencias.",
+    items: [
+      { productName: "Brioche Buns", quantity: 40 },
+      { productName: "Sourdough Boule", quantity: 20 },
+    ],
+  },
+  {
+    id: "ORD-005",
+    client: "Chelsea Market Pop-up",
+    date: "2026-03-20",
+    amount: 190,
+    status: "cancelled",
+    contactChannel: "phone",
+    contactValue: "+1 646 555 0199",
+    notes: "Cliente cancelo por cambio de fecha del evento.",
+    items: [{ productName: "Sourdough Boule", quantity: 15 }],
+  },
+];
