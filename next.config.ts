@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Pin the workspace root: a stray ~/pnpm-lock.yaml otherwise makes Next infer /home/keevh.
+  turbopack: {
+    root: __dirname,
+  },
   allowedDevOrigins: [
     "localhost",
     "127.0.0.1",
@@ -15,11 +19,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "www.santaelena.com.co",
-      },
-      {
-        protocol: "https",
-        hostname: "encrypted-tbn0.gstatic.com",
+        hostname: "upload.wikimedia.org",
       },
     ],
   },
