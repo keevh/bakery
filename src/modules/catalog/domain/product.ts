@@ -5,7 +5,7 @@ export type LocalizedText = {
   en: string;
 };
 
-export type ProductCategory = "sourdough" | "brioche";
+export type ProductCategory = "amasijo" | "hojaldre" | "dulce" | "galleteria";
 
 export type Product = {
   id: number;

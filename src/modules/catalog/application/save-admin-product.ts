@@ -17,7 +17,7 @@ function normalizeSlug(value: string) {
 function parseProductPayload(formData: FormData) {
   const slugInput = String(formData.get("slug") ?? "");
   const slug = normalizeSlug(slugInput);
-  const category = String(formData.get("category") ?? "sourdough") as ProductCategory;
+  const category = String(formData.get("category") ?? "amasijo") as ProductCategory;
   const price = Number(formData.get("price") ?? 0);
   const minOrder = Number(formData.get("minOrder") ?? 0);
   const image = String(formData.get("image") ?? "").trim();
