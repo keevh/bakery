@@ -24,6 +24,7 @@ export class DbPublicOrderRepository implements PublicOrderRepository {
           customerName: order.customerName,
           contactChannel: order.contactChannel,
           contactValue: order.contactValue,
+          address: order.address,
           deliveryDate: order.deliveryDate,
           notes: order.notes,
           total: order.total.toFixed(2),

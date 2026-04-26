@@ -2,13 +2,17 @@ import { DbProductRepository } from "@/modules/catalog/infrastructure/db-product
 
 import type { CreatePublicOrderCommand, CreatePublicOrderResult, PublicOrderContactChannel } from "../domain/public-order";
 import { PublicOrderValidationError } from "../domain/public-order";
+import { applyVolumeDiscount } from "../domain/order-pricing";
 import { DbPublicOrderRepository } from "../infrastructure/db-public-order-repository";
 
 const productRepository = new DbProductRepository();
 const publicOrderRepository = new DbPublicOrderRepository();
 
-const allowedContactChannels = new Set<PublicOrderContactChannel>(["email", "phone", "whatsapp"]);
+const allowedContactChannels = new Set<PublicOrderContactChannel>(["email", "cell"]);
 const minimumLeadTimeInDays = 2;
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const cellPattern = /^[+]?[\d\s-]{7,}$/;
 
 function roundCurrency(amount: number) {
   return Math.round(amount * 100) / 100;
@@ -87,6 +91,7 @@ export function parseCreatePublicOrderPayload(payload: unknown): CreatePublicOrd
   const customerName = normalizeString(record.customerName);
   const contactChannel = normalizeString(record.contactChannel) as PublicOrderContactChannel;
   const contactValue = normalizeString(record.contactValue);
+  const address = normalizeString(record.address);
   const deliveryDate = normalizeString(record.deliveryDate);
   const notes = normalizeString(record.notes) || null;
   const items = normalizeItems(record.items);
@@ -103,6 +108,18 @@ export function parseCreatePublicOrderPayload(payload: unknown): CreatePublicOrd
     throw new PublicOrderValidationError("Contact value is required.");
   }
 
+  if (contactChannel === "email" && !emailPattern.test(contactValue)) {
+    throw new PublicOrderValidationError("Email is invalid.");
+  }
+
+  if (contactChannel === "cell" && !cellPattern.test(contactValue)) {
+    throw new PublicOrderValidationError("Phone number is invalid.");
+  }
+
+  if (!address) {
+    throw new PublicOrderValidationError("Address is required.");
+  }
+
   if (!deliveryDate) {
     throw new PublicOrderValidationError("Delivery date is required.");
   }
@@ -111,6 +128,7 @@ export function parseCreatePublicOrderPayload(payload: unknown): CreatePublicOrd
     customerName,
     contactChannel,
     contactValue,
+    address,
     deliveryDate,
     notes,
     items,
@@ -154,16 +172,18 @@ export async function createPublicOrder(command: CreatePublicOrderCommand): Prom
     };
   });
 
-  const total = roundCurrency(
+  const subtotal = roundCurrency(
     normalizedItems.reduce((sum, item) => {
       return sum + item.unitPrice * item.quantity;
     }, 0),
   );
+  const { total } = applyVolumeDiscount(subtotal);
 
   const { orderNumber } = await publicOrderRepository.create({
     customerName: command.customerName,
     contactChannel: command.contactChannel,
     contactValue: command.contactValue,
+    address: command.address,
     deliveryDate: command.deliveryDate,
     notes: command.notes,
     total,

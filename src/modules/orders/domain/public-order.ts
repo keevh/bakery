@@ -1,4 +1,4 @@
-export type PublicOrderContactChannel = "email" | "phone" | "whatsapp";
+export type PublicOrderContactChannel = "email" | "cell";
 
 export type PublicOrderItemInput = {
   productId: number;
@@ -9,6 +9,7 @@ export type CreatePublicOrderCommand = {
   customerName: string;
   contactChannel: PublicOrderContactChannel;
   contactValue: string;
+  address: string;
   deliveryDate: string;
   notes: string | null;
   items: PublicOrderItemInput[];

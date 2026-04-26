@@ -14,6 +14,7 @@ export type CreatePublicOrderRecord = {
   customerName: string;
   contactChannel: PublicOrderContactChannel;
   contactValue: string;
+  address: string;
   deliveryDate: string;
   notes: string | null;
   total: number;

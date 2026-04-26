@@ -65,6 +65,7 @@ async function bootstrapOrders() {
         customerName: order.client,
         contactChannel: order.contactChannel,
         contactValue: order.contactValue,
+        address: order.address,
         deliveryDate: order.date,
         notes: order.notes,
         total: order.amount.toFixed(2),
