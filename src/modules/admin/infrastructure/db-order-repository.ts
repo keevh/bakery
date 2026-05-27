@@ -23,6 +23,7 @@ export class DbOrderRepository {
       status: record.status,
       contactChannel: record.contactChannel,
       contactValue: record.contactValue,
+      address: record.address,
       notes: record.notes ?? "Sin notas.",
       items: record.items.map((item) => ({
         productName: item.productName.en,

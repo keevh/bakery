@@ -11,8 +11,9 @@ export type AdminOrder = {
   date: string;
   amount: number;
   status: AdminOrderStatus;
-  contactChannel: "email" | "phone" | "whatsapp";
+  contactChannel: "email" | "cell";
   contactValue: string;
+  address: string;
   notes: string;
   items: AdminOrderItem[];
 };

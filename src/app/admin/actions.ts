@@ -16,9 +16,9 @@ import {
 } from "@/modules/catalog/application/save-admin-product";
 import { revalidateBakeryPaths } from "@/modules/shared/application/revalidate-bakery-paths";
 
-function createAdminRedirect(path: string, params: Record<string, string>) {
+function buildAdminUrl(path: string, params: Record<string, string>) {
   const searchParams = new URLSearchParams(params);
-  redirect(`${path}?${searchParams.toString()}`);
+  return `${path}?${searchParams.toString()}`;
 }
 
 async function requireAdminAccess() {
@@ -26,6 +26,27 @@ async function requireAdminAccess() {
 
   if (!isAuthenticated) {
     redirect("/admin");
+  }
+}
+
+/**
+ * Runs the action work and resolves the URL to redirect to. `redirect()` must run OUTSIDE the
+ * try/catch (it signals via a thrown control-flow error that must not be swallowed), so this helper
+ * only returns the target URL and the caller redirects afterwards.
+ */
+async function runAdminMutation(
+  path: string,
+  successFeedback: string,
+  fallbackMessage: string,
+  work: () => Promise<void>,
+): Promise<string> {
+  try {
+    await work();
+    revalidateBakeryPaths();
+    return buildAdminUrl(path, { feedback: successFeedback });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : fallbackMessage;
+    return buildAdminUrl(path, { error: message });
   }
 }
 
@@ -50,52 +71,32 @@ export async function logoutAdminAction() {
 
 export async function createAdminProductAction(formData: FormData) {
   await requireAdminAccess();
-
-  try {
-    await createAdminProduct(formData);
-    revalidateBakeryPaths();
-    createAdminRedirect("/admin", { feedback: "product-created" });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to create product.";
-    createAdminRedirect("/admin", { error: message });
-  }
+  const target = await runAdminMutation("/admin/products", "product-created", "Unable to create product.", () =>
+    createAdminProduct(formData).then(() => undefined),
+  );
+  redirect(target);
 }
 
 export async function updateAdminProductAction(formData: FormData) {
   await requireAdminAccess();
-
-  try {
-    await updateAdminProduct(formData);
-    revalidateBakeryPaths();
-    createAdminRedirect("/admin", { feedback: "product-updated" });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to update product.";
-    createAdminRedirect("/admin", { error: message });
-  }
+  const target = await runAdminMutation("/admin/products", "product-updated", "Unable to update product.", () =>
+    updateAdminProduct(formData).then(() => undefined),
+  );
+  redirect(target);
 }
 
 export async function toggleAdminProductAvailabilityAction(formData: FormData) {
   await requireAdminAccess();
-
-  try {
-    await toggleAdminProductAvailability(formData);
-    revalidateBakeryPaths();
-    createAdminRedirect("/admin", { feedback: "product-toggled" });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to toggle product.";
-    createAdminRedirect("/admin", { error: message });
-  }
+  const target = await runAdminMutation("/admin/products", "product-toggled", "Unable to toggle product.", () =>
+    toggleAdminProductAvailability(formData).then(() => undefined),
+  );
+  redirect(target);
 }
 
 export async function updateOrderStatusAction(formData: FormData) {
   await requireAdminAccess();
-
-  try {
-    await updateOrderStatus(formData);
-    revalidateBakeryPaths();
-    createAdminRedirect("/admin", { feedback: "order-updated" });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to update order.";
-    createAdminRedirect("/admin", { error: message });
-  }
+  const target = await runAdminMutation("/admin/orders", "order-updated", "Unable to update order.", () =>
+    updateOrderStatus(formData).then(() => undefined),
+  );
+  redirect(target);
 }
