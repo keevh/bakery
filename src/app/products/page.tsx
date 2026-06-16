@@ -1,8 +1,10 @@
-import { getCatalogProducts } from "@/modules/catalog/application/get-catalog-products";
-import { StorefrontPage } from "@/modules/storefront/presentation/storefront-page";
+import { getMenuProducts } from "@/modules/catalog/application/get-menu-products";
+import { CatalogPage } from "@/modules/storefront/presentation/catalog/catalog-page";
+
+export const dynamic = "force-dynamic";
 
 export default async function ProductsRoute() {
-  const products = await getCatalogProducts();
+  const products = await getMenuProducts();
 
-  return <StorefrontPage products={products} initialView="shop" />;
+  return <CatalogPage products={products} />;
 }
